@@ -16,6 +16,9 @@ export const PreferenceSchema = z.object({
   daysOff: z.array(z.string()), // ["Saturday", "Sunday"]
   bufferMinutes: z.number(),
   maxFocusBlockMin: z.number(),
+  chronotype: z.string().default('flexible'), // "morning" | "evening" | "night" | "flexible"
+  peakStart: z.string().default('09:00'),
+  peakEnd: z.string().default('12:00'),
 });
 
 export const ExistingEventSchema = z.object({
@@ -33,6 +36,8 @@ export const ScheduledBlockSchema = z.object({
   start: z.string().describe('ISO 8601 formatted start datetime (e.g. 2026-07-27T09:00:00.000Z)'),
   end: z.string().describe('ISO 8601 formatted end datetime (e.g. 2026-07-27T10:30:00.000Z)'),
   reasoning: z.string().optional().describe('Short reasoning why this slot was chosen'),
+  partIndex: z.number().optional().describe('Part number for multi-session split tasks'),
+  totalParts: z.number().optional().describe('Total parts count for multi-session split tasks'),
 });
 
 export const AIPlannerOutputSchema = z.object({
