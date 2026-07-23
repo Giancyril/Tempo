@@ -1,7 +1,14 @@
 import './globals.css';
 import React from 'react';
+import { Inter } from 'next/font/google';
 import { Providers } from '@/components/Providers';
 import { ClientShell } from '@/components/ClientShell';
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+});
 
 export const metadata = {
   title: 'Chronos AI — Calendar Planner',
@@ -10,8 +17,8 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans antialiased">
+    <html lang="en" className={`dark ${inter.variable}`}>
+      <body className="bg-dark-bg text-slate-100 min-h-screen flex flex-col font-sans antialiased">
         <Providers>
           <ClientShell>{children}</ClientShell>
         </Providers>
