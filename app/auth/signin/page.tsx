@@ -2,37 +2,61 @@
 
 import React from 'react';
 import { signIn } from 'next-auth/react';
-import { Sparkles, Calendar, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
+import { Sparkles, Calendar, ShieldCheck, Zap, CheckCircle2, Clock } from 'lucide-react';
 
 export default function SignInPage() {
   return (
-    <div className="min-h-[80vh] flex items-center justify-center p-4">
-      <div className="w-full max-w-md glass-panel rounded-3xl p-8 border border-slate-800 shadow-2xl relative overflow-hidden text-center space-y-6">
-        {/* Glow Top Highlight */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-500 via-purple-500 to-emerald-400" />
+    <div className="min-h-[82vh] flex items-center justify-center p-4 relative overflow-hidden animate-fade-in">
+      {/* Background Ambient Lights */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-brand-500/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-[350px] h-[350px] bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
 
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-600 via-purple-600 to-emerald-400 p-[1px] mx-auto shadow-glow-indigo">
+      <div className="w-full max-w-md card p-8 sm:p-9 shadow-modal relative overflow-hidden text-center space-y-6 z-10 border-slate-700/80">
+        {/* Glow Accent Bar */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400" />
+
+        {/* Brand Logo Circle */}
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-emerald-400 p-[1px] mx-auto shadow-glow-indigo">
           <div className="w-full h-full bg-slate-950 rounded-[15px] flex items-center justify-center">
-            <Sparkles className="w-8 h-8 text-brand-400" />
+            <Sparkles className="w-8 h-8 text-indigo-400" />
           </div>
         </div>
 
         <div>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/25 text-indigo-300 text-xs font-semibold mb-2">
+            <Sparkles className="w-3.5 h-3.5" /> Chronos AI Scheduler
+          </div>
           <h2 className="text-2xl font-extrabold text-white tracking-tight">
-            Welcome to Chronos AI
+            Smart Weekly Calendar Planner
           </h2>
-          <p className="text-xs text-slate-400 mt-2 max-w-xs mx-auto">
-            Connect your Google Calendar to let AI organize your tasks into an optimized, conflict-free weekly schedule.
+          <p className="text-xs text-slate-400 mt-2 leading-relaxed max-w-xs mx-auto">
+            Connect your Google Calendar or launch Demo mode to generate realistic, constraint-aware focus schedules.
           </p>
         </div>
 
-        <div className="space-y-3 pt-2">
+        {/* Feature bullets */}
+        <div className="grid grid-cols-1 gap-2 text-left bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 text-xs text-slate-300">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span>Auto-solves task deadlines around busy meetings</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Clock className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+            <span>Enforces focus session limits & buffer break time</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Calendar className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+            <span>Direct 2-way sync to Google Calendar</span>
+          </div>
+        </div>
+
+        <div className="space-y-3 pt-1">
           {/* Google OAuth Button */}
           <button
             onClick={() => signIn('google', { callbackUrl: '/' })}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-white font-medium text-sm transition-all"
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-white font-semibold text-xs transition-all shadow-sm active:scale-[0.99]"
           >
-            <svg className="w-5 h-5" viewBox="0 0 24 24">
+            <svg className="w-4.5 h-4.5 shrink-0" viewBox="0 0 24 24">
               <path
                 fill="#4285F4"
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -56,16 +80,16 @@ export default function SignInPage() {
           {/* Quick Demo Mode Button */}
           <button
             onClick={() => signIn('demo-credentials', { callbackUrl: '/' })}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-brand-600 via-purple-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 text-white font-semibold text-sm shadow-glow-indigo transition-all transform hover:scale-[1.02]"
+            className="btn btn-primary w-full py-3 text-xs font-bold shadow-glow-indigo"
           >
-            <Zap className="w-4 h-4" />
-            <span>Try Demo Account (Instant Access)</span>
+            <Zap className="w-4 h-4 text-emerald-300" />
+            <span>Try Instant Demo Mode</span>
           </button>
         </div>
 
-        <div className="pt-4 border-t border-slate-800 text-[11px] text-slate-500 flex items-center justify-center gap-1">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-          <span>OAuth calendar scopes encrypted server-side</span>
+        <div className="pt-4 border-t border-slate-800/80 text-[11px] text-slate-500 flex items-center justify-center gap-1.5">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <span>OAuth tokens encrypted server-side via NextAuth</span>
         </div>
       </div>
     </div>
