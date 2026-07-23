@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { X, Clock, Calendar as CalendarIcon, Tag, AlertCircle, Sparkles, Plus } from 'lucide-react';
 import { CustomSelectDropdown } from './CustomSelectDropdown';
+import { NaturalLanguageTaskBar } from './NaturalLanguageTaskBar';
 
 interface TaskFormModalProps {
   isOpen: boolean;
@@ -46,6 +47,32 @@ export function TaskFormModal({ isOpen, onClose, onTaskCreated }: TaskFormModalP
   const [error, setError] = useState('');
 
   if (!isOpen) return null;
+
+  function handleParsedAI(parsed: {
+    title: string;
+    durationMin: number;
+    priority: number;
+    category: string;
+    deadline?: string | null;
+    constraints?: string | null;
+  }) {
+    if (parsed.title) setTitle(parsed.title);
+    if (parsed.durationMin) setDurationMin(String(parsed.durationMin));
+    if (parsed.priority) setPriority(parsed.priority);
+    if (parsed.category) setCategory(parsed.category);
+    if (parsed.constraints) setConstraints(parsed.constraints);
+
+    if (parsed.deadline) {
+      // Format to datetime-local string (YYYY-MM-DDTHH:mm)
+      try {
+        const d = new Date(parsed.deadline);
+        const isoLocal = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        setDeadline(isoLocal);
+      } catch (err) {
+        console.error('Failed to format deadline date:', err);
+      }
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -93,7 +120,7 @@ export function TaskFormModal({ isOpen, onClose, onTaskCreated }: TaskFormModalP
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
-      <div className="w-full max-w-lg card p-6 relative overflow-hidden animate-scale-in border-slate-700/80 shadow-modal">
+      <div className="w-full max-w-lg card p-6 relative overflow-hidden animate-scale-in border-slate-700/80 shadow-modal max-h-[90vh] overflow-y-auto">
         {/* Top Glow Bar */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400" />
 
@@ -105,7 +132,7 @@ export function TaskFormModal({ isOpen, onClose, onTaskCreated }: TaskFormModalP
             </div>
             <div>
               <h3 className="text-base font-bold text-white leading-tight">Create New Task</h3>
-              <p className="text-[11px] text-slate-400">Add a task constraint for the AI scheduler</p>
+              <p className="text-[11px] text-slate-400">Parse with AI or fill in constraints manually</p>
             </div>
           </div>
           <button
@@ -116,6 +143,11 @@ export function TaskFormModal({ isOpen, onClose, onTaskCreated }: TaskFormModalP
           </button>
         </div>
 
+        {/* AI Prompt Input Bar */}
+        <div className="mt-4 pb-4 border-b border-slate-800/80">
+          <NaturalLanguageTaskBar onTaskParsed={handleParsedAI} />
+        </div>
+
         {error && (
           <div className="mt-4 p-3 rounded-xl bg-red-950/40 border border-red-800/60 text-red-300 text-xs flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
@@ -123,7 +155,7 @@ export function TaskFormModal({ isOpen, onClose, onTaskCreated }: TaskFormModalP
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           {/* Title */}
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1.5">
@@ -136,7 +168,6 @@ export function TaskFormModal({ isOpen, onClose, onTaskCreated }: TaskFormModalP
               placeholder="e.g., Prepare Q3 Quarterly Financial Presentation"
               className="input-field text-sm"
               required
-              autoFocus
             />
           </div>
 
