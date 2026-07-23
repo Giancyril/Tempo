@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Clock, Calendar, Check, Sparkles, Coffee, Zap } from 'lucide-react';
+import { Clock, Calendar, Check, Sparkles, Zap, Sun, Sunset, Moon, Compass } from 'lucide-react';
 import { CustomSelectDropdown } from './CustomSelectDropdown';
-import { CustomSingleDatePicker } from './CustomSingleDatePicker';
 
 // Generate half-hour time slots for work start/end dropdowns
 const TIME_SLOTS = Array.from({ length: 32 }, (_, i) => {
@@ -36,6 +35,49 @@ const FOCUS_BLOCK_OPTIONS = [
   { id: '180', name: '3 hours (180 mins)' },
 ];
 
+const CHRONOTYPES = [
+  {
+    id: 'morning',
+    title: 'Morning Person',
+    subtitle: 'Peak focus 9 AM – 12 PM',
+    icon: Sun,
+    color: 'text-amber-400',
+    bgColor: 'bg-amber-500/10 border-amber-500/30',
+    defaultStart: '09:00',
+    defaultEnd: '12:00',
+  },
+  {
+    id: 'evening',
+    title: 'Afternoon / Evening',
+    subtitle: 'Peak focus 1 PM – 5 PM',
+    icon: Sunset,
+    color: 'text-orange-400',
+    bgColor: 'bg-orange-500/10 border-orange-500/30',
+    defaultStart: '13:00',
+    defaultEnd: '17:00',
+  },
+  {
+    id: 'night',
+    title: 'Night Owl',
+    subtitle: 'Peak focus 6 PM – 10 PM',
+    icon: Moon,
+    color: 'text-indigo-400',
+    bgColor: 'bg-indigo-500/10 border-indigo-500/30',
+    defaultStart: '18:00',
+    defaultEnd: '22:00',
+  },
+  {
+    id: 'flexible',
+    title: 'Flexible / Standard',
+    subtitle: 'No energy profiling',
+    icon: Compass,
+    color: 'text-emerald-400',
+    bgColor: 'bg-emerald-500/10 border-emerald-500/30',
+    defaultStart: '09:00',
+    defaultEnd: '12:00',
+  },
+];
+
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const DAY_SHORT: Record<string, string> = {
@@ -49,6 +91,12 @@ export function PreferencesForm() {
   const [daysOff, setDaysOff] = useState<string[]>(['Saturday', 'Sunday']);
   const [bufferMinutes, setBufferMinutes] = useState('15');
   const [maxFocusBlockMin, setMaxFocusBlockMin] = useState('120');
+
+  // Chronotype & Energy fields
+  const [chronotype, setChronotype] = useState('morning');
+  const [peakStart, setPeakStart] = useState('09:00');
+  const [peakEnd, setPeakEnd] = useState('12:00');
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -64,6 +112,9 @@ export function PreferencesForm() {
           if (data.daysOffArray) setDaysOff(data.daysOffArray);
           if (data.bufferMinutes) setBufferMinutes(String(data.bufferMinutes));
           if (data.maxFocusBlockMin) setMaxFocusBlockMin(String(data.maxFocusBlockMin));
+          if (data.chronotype) setChronotype(data.chronotype);
+          if (data.peakStart) setPeakStart(data.peakStart);
+          if (data.peakEnd) setPeakEnd(data.peakEnd);
         }
       } catch (err) {
         console.error('Failed to load preferences:', err);
@@ -80,6 +131,14 @@ export function PreferencesForm() {
     );
   }
 
+  function handleSelectChronotype(c: typeof CHRONOTYPES[number]) {
+    setChronotype(c.id);
+    if (c.id !== 'flexible') {
+      setPeakStart(c.defaultStart);
+      setPeakEnd(c.defaultEnd);
+    }
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -94,6 +153,9 @@ export function PreferencesForm() {
           daysOff,
           bufferMinutes: Number(bufferMinutes),
           maxFocusBlockMin: Number(maxFocusBlockMin),
+          chronotype,
+          peakStart,
+          peakEnd,
         }),
       });
       if (res.ok) {
@@ -118,7 +180,7 @@ export function PreferencesForm() {
   return (
     <form onSubmit={handleSave} className="space-y-5">
 
-      {/* ── Work Hours ──────────────────────────── */}
+      {/* ── Working Hours ──────────────────────────── */}
       <section className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -127,11 +189,11 @@ export function PreferencesForm() {
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">Working Hours</h3>
-              <p className="text-[11px] text-slate-500">Define your productive hours window</p>
+              <p className="text-[11px] text-slate-500">Define your overall productive window</p>
             </div>
           </div>
           {savedSuccess && (
-            <span className="px-3 py-1 rounded-lg bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-xs font-semibold flex items-center gap-1.5">
+            <span className="px-3 py-1 rounded-lg bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-xs font-semibold flex items-center gap-1.5 animate-fade-in">
               <Check className="w-3.5 h-3.5" /> Saved!
             </span>
           )}
@@ -150,7 +212,6 @@ export function PreferencesForm() {
               allValue=""
               className="w-full"
             />
-            <p className="text-[10px] text-slate-600">AI will not schedule tasks before this time</p>
           </div>
 
           <div className="space-y-1.5">
@@ -165,9 +226,98 @@ export function PreferencesForm() {
               allValue=""
               className="w-full"
             />
-            <p className="text-[10px] text-slate-600">AI will not schedule tasks after this time</p>
           </div>
         </div>
+      </section>
+
+      {/* ── Chronotype & Energy-Level Scheduling ── */}
+      <section className="bg-slate-900/60 border border-indigo-500/30 rounded-2xl p-6 space-y-5 bg-gradient-to-b from-indigo-950/20 to-slate-900/60">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
+            <Sun className="w-4 h-4 text-amber-400" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-white">Chronotype & Energy Profile</h3>
+              <span className="badge badge-amber text-[10px]">AI Feature</span>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Schedules P1/P2 deep focus tasks during peak hours, and lightweight tasks during slump hours.
+            </p>
+          </div>
+        </div>
+
+        {/* Persona Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {CHRONOTYPES.map((c) => {
+            const Icon = c.icon;
+            const isSelected = chronotype === c.id;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => handleSelectChronotype(c)}
+                className={`
+                  p-3.5 rounded-xl border text-left transition-all duration-200 flex flex-col justify-between space-y-2
+                  ${isSelected
+                    ? `${c.bgColor} shadow-lg ring-1 ring-amber-500/50 scale-[1.02]`
+                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-white'}
+                `}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <Icon className={`w-5 h-5 ${c.color}`} />
+                  {isSelected && <Check className="w-4 h-4 text-amber-400" />}
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-white">{c.title}</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">{c.subtitle}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Peak Energy Window Controls */}
+        {chronotype !== 'flexible' && (
+          <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3 animate-fade-in">
+            <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              Customize Peak Energy Window
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="block text-[10px] font-semibold text-slate-400 uppercase">
+                  Peak Start
+                </label>
+                <CustomSelectDropdown
+                  value={peakStart}
+                  onChange={setPeakStart}
+                  options={TIME_SLOTS}
+                  allLabel="Select peak start"
+                  allValue=""
+                  className="w-full"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[10px] font-semibold text-slate-400 uppercase">
+                  Peak End
+                </label>
+                <CustomSelectDropdown
+                  value={peakEnd}
+                  onChange={setPeakEnd}
+                  options={TIME_SLOTS}
+                  allLabel="Select peak end"
+                  allValue=""
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-500">
+              High-priority (P1/P2) tasks will be placed in the <span className="text-amber-400 font-semibold">{peakStart} – {peakEnd}</span> slot first.
+            </p>
+          </div>
+        )}
       </section>
 
       {/* ── Days Off ────────────────────────────── */}
@@ -206,21 +356,17 @@ export function PreferencesForm() {
             );
           })}
         </div>
-
-        <p className="text-[11px] text-slate-600">
-          Currently off: {daysOff.length > 0 ? daysOff.join(', ') : 'None — AI will plan every day of the week'}
-        </p>
       </section>
 
-      {/* ── Focus & Buffer Settings ──────────────── */}
+      {/* ── Focus & Buffer Settings (Multi-Session Splitting) ── */}
       <section className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 space-y-4">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
             <Zap className="w-4 h-4 text-emerald-400" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-white">Focus & Buffer Settings</h3>
-            <p className="text-[11px] text-slate-500">Control session depth and mental recovery time</p>
+            <h3 className="text-sm font-bold text-white">Focus & Smart Session Splitting</h3>
+            <p className="text-[11px] text-slate-500">Control maximum session depth for multi-session splitting</p>
           </div>
         </div>
 
@@ -237,7 +383,6 @@ export function PreferencesForm() {
               allValue=""
               className="w-full"
             />
-            <p className="text-[10px] text-slate-600">Breathing room between back-to-back focus sessions</p>
           </div>
 
           <div className="space-y-1.5">
@@ -252,7 +397,9 @@ export function PreferencesForm() {
               allValue=""
               className="w-full"
             />
-            <p className="text-[10px] text-slate-600">Longer tasks get split across multiple sessions</p>
+            <p className="text-[10px] text-emerald-400 font-medium">
+              💡 Tasks exceeding {maxFocusBlockMin} mins automatically split into multi-day blocks.
+            </p>
           </div>
         </div>
       </section>
@@ -261,20 +408,25 @@ export function PreferencesForm() {
       <section className="bg-slate-950/80 border border-indigo-500/20 rounded-2xl p-4">
         <div className="flex items-center gap-2 mb-3">
           <Sparkles className="w-4 h-4 text-indigo-400" />
-          <span className="text-xs font-bold text-indigo-300">Current AI Scheduling Constraints</span>
+          <span className="text-xs font-bold text-indigo-300">Active AI Scheduling Profile</span>
         </div>
         <div className="flex flex-wrap gap-2">
           <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-[11px] text-slate-300">
             🕐 {workStart} – {workEnd}
           </span>
+          {chronotype !== 'flexible' && (
+            <span className="px-2.5 py-1 rounded-lg bg-amber-950/50 border border-amber-800/60 text-[11px] text-amber-300 font-medium">
+              ⚡ Peak: {peakStart} – {peakEnd} ({chronotype})
+            </span>
+          )}
           <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-[11px] text-slate-300">
             📅 Off: {daysOff.length > 0 ? daysOff.map(d => DAY_SHORT[d]).join(', ') : 'None'}
           </span>
           <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-[11px] text-slate-300">
             ☕ {bufferMinutes}m buffer
           </span>
-          <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-[11px] text-slate-300">
-            ⚡ Max {maxFocusBlockMin}m focus block
+          <span className="px-2.5 py-1 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-[11px] text-emerald-300 font-medium">
+            🔗 Max {maxFocusBlockMin}m split block
           </span>
         </div>
       </section>
@@ -289,7 +441,7 @@ export function PreferencesForm() {
           {saving ? (
             <>
               <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Saving...
+              Saving Profile...
             </>
           ) : (
             <>
