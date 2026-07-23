@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
-import { format, addDays, startOfWeek, parseISO, isSameDay, getHours, getMinutes } from 'date-fns';
-import { Sparkles, Calendar as CalendarIcon, CheckCircle, Trash2, ExternalLink, RefreshCw } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { format, addDays, startOfWeek, parseISO, isSameDay, getHours, getMinutes, differenceInMinutes } from 'date-fns';
+import { Sparkles, Calendar as CalendarIcon, CheckCircle, Trash2, RefreshCw, Info, CheckCircle2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export interface CalendarBlock {
@@ -44,41 +44,67 @@ export function WeekCalendarGrid({
   const days = Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i));
   const hours = Array.from({ length: 13 }).map((_, i) => i + 8); // 8:00 AM to 8:00 PM (20:00)
 
-  const getCategoryColor = (category?: string) => {
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
+
+  useEffect(() => {
+    setCurrentTime(new Date());
+    const interval = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const getCategoryCardStyle = (category?: string) => {
     switch (category?.toLowerCase()) {
       case 'work':
-        return 'bg-indigo-600/30 border-indigo-500/60 text-indigo-200 shadow-glow-indigo';
+        return 'bg-indigo-950/50 border-indigo-500/40 text-indigo-100 cat-border-work';
       case 'study':
-        return 'bg-purple-600/30 border-purple-500/60 text-purple-200 shadow-glow-purple';
+        return 'bg-purple-950/50 border-purple-500/40 text-purple-100 cat-border-study';
       case 'health':
-        return 'bg-emerald-600/30 border-emerald-500/60 text-emerald-200 shadow-glow-emerald';
+        return 'bg-emerald-950/50 border-emerald-500/40 text-emerald-100 cat-border-health';
       case 'personal':
-        return 'bg-amber-600/30 border-amber-500/60 text-amber-200';
+        return 'bg-amber-950/50 border-amber-500/40 text-amber-100 cat-border-personal';
       default:
-        return 'bg-brand-600/30 border-brand-500/60 text-brand-200';
+        return 'bg-brand-950/50 border-brand-500/40 text-brand-100 cat-border-default';
     }
   };
 
   const triggerConfetti = () => {
     confetti({
-      particleCount: 80,
-      spread: 70,
+      particleCount: 90,
+      spread: 75,
       origin: { y: 0.6 },
     });
+  };
+
+  // Check if current time line falls in this hour slot and day
+  const isCurrentTimeSlot = (day: Date, hour: number) => {
+    if (!currentTime) return false;
+    return isSameDay(day, currentTime) && getHours(currentTime) === hour;
+  };
+
+  const getCurrentTimeOffsetPercent = () => {
+    if (!currentTime) return 0;
+    const mins = getMinutes(currentTime);
+    return (mins / 60) * 100;
   };
 
   return (
     <div className="space-y-4">
       {/* Action Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 glass-panel p-4 rounded-2xl border border-slate-800">
-        <div>
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <CalendarIcon className="w-5 h-5 text-brand-400" />
-            Week of {format(weekStart, 'MMM d, yyyy')}
-          </h3>
-          <p className="text-xs text-slate-400">
-            {proposedBlocks.length} AI focus block(s) scheduled • {existingEvents.length} calendar event(s) detected
-          </p>
+      <div className="card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+            <CalendarIcon className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <span>Week of {format(weekStart, 'MMM d, yyyy')}</span>
+            </h3>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              <span className="font-semibold text-indigo-300">{proposedBlocks.length} AI focus block(s)</span>
+              {' • '}
+              <span className="text-slate-400">{existingEvents.length} calendar event(s)</span>
+            </p>
+          </div>
         </div>
 
         {onSyncGoogleCalendar && (
@@ -88,16 +114,16 @@ export function WeekCalendarGrid({
               onSyncGoogleCalendar();
             }}
             disabled={isSyncing || proposedBlocks.length === 0}
-            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-sm font-semibold shadow-glow-emerald transition-all disabled:opacity-50"
+            className="btn btn-success px-5 py-2.5 text-xs font-bold shadow-glow-emerald shrink-0"
           >
             {isSyncing ? (
               <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                 <span>Syncing Calendar...</span>
               </>
             ) : (
               <>
-                <CheckCircle className="w-4 h-4" />
+                <CheckCircle className="w-3.5 h-3.5 text-emerald-200" />
                 <span>Sync to Google Calendar</span>
               </>
             )}
@@ -105,113 +131,168 @@ export function WeekCalendarGrid({
         )}
       </div>
 
-      {/* Main Weekly Calendar Grid */}
-      <div className="glass-panel rounded-2xl border border-slate-800 overflow-x-auto">
-        <div className="min-w-[800px]">
-          {/* Header Row: Days of Week */}
-          <div className="grid grid-cols-8 border-b border-slate-800 bg-slate-900/60 sticky top-0 z-10">
-            <div className="p-3 text-center text-xs font-semibold text-slate-500 border-r border-slate-800">
-              Time
-            </div>
-            {days.map((day) => (
-              <div
-                key={day.toISOString()}
-                className={`p-3 text-center border-r border-slate-800 ${
-                  isSameDay(day, new Date()) ? 'bg-brand-950/40 text-brand-300' : 'text-slate-300'
-                }`}
-              >
-                <div className="text-xs font-semibold uppercase">{format(day, 'EEE')}</div>
-                <div className="text-sm font-bold mt-0.5">{format(day, 'MMM d')}</div>
+      {/* Main Weekly Calendar Grid Container */}
+      <div className="card overflow-hidden">
+        <div className="overflow-x-auto">
+          <div className="min-w-[840px]">
+
+            {/* Header Row: Days of Week */}
+            <div className="grid grid-cols-8 border-b border-slate-800 bg-slate-900/80 sticky top-0 z-20 backdrop-blur-md">
+              <div className="p-3 text-center text-[11px] font-bold text-slate-500 border-r border-slate-800 uppercase tracking-wider flex items-center justify-center">
+                Time
               </div>
-            ))}
-          </div>
 
-          {/* Time Rows */}
-          <div className="relative">
-            {hours.map((hour) => (
-              <div key={hour} className="grid grid-cols-8 border-b border-slate-800/40 min-h-[70px]">
-                {/* Hour Label */}
-                <div className="p-2 text-center text-[11px] font-medium text-slate-500 border-r border-slate-800/60 select-none">
-                  {hour < 12 ? `${hour}:00 AM` : hour === 12 ? '12:00 PM' : `${hour - 12}:00 PM`}
-                </div>
-
-                {/* Day Columns for this hour slot */}
-                {days.map((day) => {
-                  // Find proposed AI blocks for this day & hour
-                  const dayBlocks = proposedBlocks.filter((b) => {
-                    const bStart = parseISO(b.start);
-                    return isSameDay(bStart, day) && getHours(bStart) === hour;
-                  });
-
-                  // Find existing calendar events for this day & hour
-                  const dayEvents = existingEvents.filter((e) => {
-                    const eStart = parseISO(e.start);
-                    return isSameDay(eStart, day) && getHours(eStart) === hour;
-                  });
-
-                  return (
-                    <div
-                      key={day.toISOString()}
-                      className="p-1 border-r border-slate-800/40 relative min-h-[70px] space-y-1 hover:bg-slate-900/30 transition-colors"
-                    >
-                      {/* Render Existing Events (Gray/Slate) */}
-                      {dayEvents.map((evt) => (
-                        <div
-                          key={evt.id || evt.summary}
-                          className="p-1.5 rounded-lg bg-slate-800/80 border border-slate-700 text-slate-300 text-[11px] font-medium shadow-sm"
-                          title={`Existing Event: ${evt.summary} (${format(parseISO(evt.start), 'HH:mm')}-${format(parseISO(evt.end), 'HH:mm')})`}
-                        >
-                          <div className="truncate font-semibold text-slate-200">{evt.summary}</div>
-                          <div className="text-[10px] text-slate-400">
-                            {format(parseISO(evt.start), 'h:mm a')} - {format(parseISO(evt.end), 'h:mm a')}
-                          </div>
-                        </div>
-                      ))}
-
-                      {/* Render Proposed AI Focus Blocks */}
-                      {dayBlocks.map((block) => (
-                        <div
-                          key={block.id}
-                          className={`p-2 rounded-xl border text-xs relative group transition-all duration-200 hover:scale-[1.02] ${getCategoryColor(
-                            block.category
-                          )}`}
-                        >
-                          <div className="flex items-start justify-between gap-1">
-                            <span className="font-bold text-[11px] leading-snug line-clamp-2">
-                              ✨ {block.title}
-                            </span>
-                            {onDeleteBlock && (
-                              <button
-                                onClick={() => onDeleteBlock(block.id)}
-                                className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-red-300 hover:bg-red-900/50 transition-opacity"
-                                title="Remove Block"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                          <div className="text-[10px] opacity-80 mt-1 flex items-center justify-between">
-                            <span>
-                              {format(parseISO(block.start), 'h:mm a')} - {format(parseISO(block.end), 'h:mm a')}
-                            </span>
-                            {block.isSynced && (
-                              <span className="text-emerald-400 font-semibold text-[9px] flex items-center gap-0.5">
-                                ✓ Synced
-                              </span>
-                            )}
-                          </div>
-                          {block.reasoning && (
-                            <div className="hidden group-hover:block absolute bottom-full left-0 z-30 mb-2 w-48 p-2 rounded-lg bg-slate-950 border border-slate-700 text-[10px] text-slate-300 shadow-xl">
-                              {block.reasoning}
-                            </div>
-                          )}
-                        </div>
-                      ))}
+              {days.map((day) => {
+                const isToday = isSameDay(day, new Date());
+                return (
+                  <div
+                    key={day.toISOString()}
+                    className={`p-3 text-center border-r border-slate-800/80 transition-colors ${
+                      isToday ? 'bg-indigo-500/10' : ''
+                    }`}
+                  >
+                    <div className={`text-[10px] font-bold uppercase tracking-wider ${isToday ? 'text-indigo-400' : 'text-slate-400'}`}>
+                      {format(day, 'EEE')}
                     </div>
-                  );
-                })}
+                    <div className="mt-1 flex items-center justify-center">
+                      <span className={`
+                        inline-flex items-center justify-center text-xs font-extrabold w-7 h-7 rounded-lg
+                        ${isToday
+                          ? 'bg-indigo-600 text-white shadow-glow-indigo'
+                          : 'text-slate-200'}
+                      `}>
+                        {format(day, 'd')}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Empty State Banner if no proposed blocks exist */}
+            {proposedBlocks.length === 0 && (
+              <div className="p-4 bg-indigo-950/20 border-b border-slate-800 flex items-center justify-between text-xs text-indigo-300">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-indigo-400 shrink-0" />
+                  <span>No AI focus blocks generated for this week yet. Click <strong>"Generate AI Schedule"</strong> above to plan your backlog.</span>
+                </div>
               </div>
-            ))}
+            )}
+
+            {/* Time Rows Grid */}
+            <div className="relative divide-y divide-slate-800/50">
+              {hours.map((hour) => (
+                <div key={hour} className="grid grid-cols-8 min-h-[76px]">
+                  {/* Hour Label */}
+                  <div className="p-2 text-center text-[11px] font-semibold text-slate-400 border-r border-slate-800/80 select-none bg-slate-950/40 flex flex-col justify-start pt-2">
+                    {hour < 12 ? `${hour}:00 AM` : hour === 12 ? '12:00 PM' : `${hour - 12}:00 PM`}
+                  </div>
+
+                  {/* Day Columns for this hour slot */}
+                  {days.map((day) => {
+                    // Find proposed AI blocks starting in this hour slot
+                    const dayBlocks = proposedBlocks.filter((b) => {
+                      const bStart = parseISO(b.start);
+                      return isSameDay(bStart, day) && getHours(bStart) === hour;
+                    });
+
+                    // Find existing calendar events starting in this hour slot
+                    const dayEvents = existingEvents.filter((e) => {
+                      const eStart = parseISO(e.start);
+                      return isSameDay(eStart, day) && getHours(eStart) === hour;
+                    });
+
+                    const hasCurrentTime = isCurrentTimeSlot(day, hour);
+                    const currentTimePercent = getCurrentTimeOffsetPercent();
+
+                    return (
+                      <div
+                        key={day.toISOString()}
+                        className="p-1 border-r border-slate-800/50 relative space-y-1 hover:bg-slate-900/40 transition-colors group/cell"
+                      >
+                        {/* Half-hour subtle divider line */}
+                        <div className="absolute top-1/2 left-0 right-0 border-b border-dashed border-slate-800/30 pointer-events-none" />
+
+                        {/* Red Current-Time Line Indicator */}
+                        {hasCurrentTime && (
+                          <div
+                            className="absolute left-0 right-0 z-30 flex items-center pointer-events-none"
+                            style={{ top: `${currentTimePercent}%` }}
+                          >
+                            <div className="w-2 h-2 rounded-full bg-red-500 -ml-1 shadow-glow-emerald" />
+                            <div className="w-full h-[2px] bg-red-500/80" />
+                          </div>
+                        )}
+
+                        {/* Render Existing Events (Muted Slate) */}
+                        {dayEvents.map((evt) => (
+                          <div
+                            key={evt.id || evt.summary}
+                            className="p-1.5 rounded-lg bg-slate-800/80 border border-slate-700/80 text-slate-300 text-[11px] font-medium shadow-sm border-l-2 border-l-slate-400"
+                            title={`Calendar Event: ${evt.summary} (${format(parseISO(evt.start), 'HH:mm')}-${format(parseISO(evt.end), 'HH:mm')})`}
+                          >
+                            <div className="truncate font-bold text-slate-200">{evt.summary}</div>
+                            <div className="text-[10px] text-slate-400 mt-0.5">
+                              {format(parseISO(evt.start), 'h:mm a')} – {format(parseISO(evt.end), 'h:mm a')}
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Render Proposed AI Focus Blocks */}
+                        {dayBlocks.map((block) => {
+                          const duration = differenceInMinutes(parseISO(block.end), parseISO(block.start));
+                          return (
+                            <div
+                              key={block.id}
+                              className={`
+                                p-2 rounded-xl border text-xs relative group/block transition-all duration-200 hover:scale-[1.02] shadow-sm
+                                ${getCategoryCardStyle(block.category)}
+                              `}
+                            >
+                              <div className="flex items-start justify-between gap-1">
+                                <span className="font-extrabold text-[11px] leading-snug line-clamp-2">
+                                  ✨ {block.title}
+                                </span>
+                                {onDeleteBlock && (
+                                  <button
+                                    onClick={() => onDeleteBlock(block.id)}
+                                    className="opacity-0 group-hover/block:opacity-100 p-0.5 rounded text-red-300 hover:bg-red-900/60 transition-opacity shrink-0"
+                                    title="Remove Block"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+
+                              <div className="text-[10px] opacity-90 mt-1 flex items-center justify-between font-medium">
+                                <span>
+                                  {format(parseISO(block.start), 'h:mm a')} – {format(parseISO(block.end), 'h:mm a')}
+                                </span>
+                                {block.isSynced && (
+                                  <span className="text-emerald-400 font-bold text-[9px] flex items-center gap-0.5">
+                                    <CheckCircle2 className="w-3 h-3" /> Synced
+                                  </span>
+                                )}
+                              </div>
+
+                              {block.reasoning && (
+                                <div className="hidden group-hover/block:block absolute bottom-full left-0 z-40 mb-2 w-52 p-2.5 rounded-xl bg-slate-950 border border-slate-700 text-[10px] text-slate-300 shadow-2xl space-y-1">
+                                  <div className="font-bold text-indigo-300 flex items-center gap-1">
+                                    <Sparkles className="w-3 h-3" /> AI Reasoning
+                                  </div>
+                                  <p className="text-slate-400 leading-normal">{block.reasoning}</p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+
           </div>
         </div>
       </div>
