@@ -39,6 +39,9 @@ export async function POST(request: Request) {
           daysOff: 'Saturday,Sunday',
           bufferMinutes: 15,
           maxFocusBlockMin: 120,
+          chronotype: 'flexible',
+          peakStart: '09:00',
+          peakEnd: '12:00',
         },
       });
     }
@@ -49,6 +52,9 @@ export async function POST(request: Request) {
       daysOff: pref.daysOff.split(',').filter(Boolean),
       bufferMinutes: pref.bufferMinutes,
       maxFocusBlockMin: pref.maxFocusBlockMin,
+      chronotype: pref.chronotype || 'flexible',
+      peakStart: pref.peakStart || '09:00',
+      peakEnd: pref.peakEnd || '12:00',
     };
 
     // 3. Fetch existing calendar events
