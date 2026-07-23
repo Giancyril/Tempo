@@ -2,19 +2,21 @@
 
 import React, { useEffect, useState } from 'react';
 import { format, addDays, startOfWeek, parseISO, isSameDay, getHours, getMinutes, differenceInMinutes } from 'date-fns';
-import { Sparkles, Calendar as CalendarIcon, CheckCircle, Trash2, RefreshCw, CheckCircle2 } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { Sparkles, Calendar as CalendarIcon, CheckCircle2, Trash2, RefreshCw, Link as LinkIcon } from 'lucide-react';
 import { BlockDetailModal, DetailItem } from './BlockDetailModal';
 
 export interface CalendarBlock {
   id: string;
-  taskId: string;
+  taskId?: string;
   title: string;
-  category?: string;
-  start: string; // ISO
-  end: string;   // ISO
+  category: string;
+  start: string;
+  end: string;
   reasoning?: string;
   isSynced?: boolean;
+  googleEventId?: string;
+  partIndex?: number;
+  totalParts?: number;
 }
 
 export interface ExistingEvent {
@@ -34,97 +36,90 @@ interface WeekCalendarGridProps {
   isSyncing?: boolean;
 }
 
+const HOURS_IN_DAY = 16; // 06:00 to 22:00
+const START_HOUR = 6;
+
+function getCategoryCardStyle(category: string): string {
+  const cat = (category || 'Work').toLowerCase();
+  switch (cat) {
+    case 'work':
+      return 'cat-border-work bg-indigo-950/60 border-indigo-500/40 text-indigo-100 hover:border-indigo-400';
+    case 'study':
+      return 'cat-border-study bg-purple-950/60 border-purple-500/40 text-purple-100 hover:border-purple-400';
+    case 'personal':
+      return 'cat-border-personal bg-amber-950/60 border-amber-500/40 text-amber-100 hover:border-amber-400';
+    case 'health':
+      return 'cat-border-health bg-emerald-950/60 border-emerald-500/40 text-emerald-100 hover:border-emerald-400';
+    default:
+      return 'cat-border bg-slate-900/80 border-slate-700 text-slate-200 hover:border-slate-500';
+  }
+}
+
 export function WeekCalendarGrid({
   weekStart,
   proposedBlocks,
   existingEvents,
   onDeleteBlock,
   onSyncGoogleCalendar,
-  isSyncing,
+  isSyncing = false,
 }: WeekCalendarGridProps) {
-  const days = Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i));
-  const hours = Array.from({ length: 13 }).map((_, i) => i + 8); // 8:00 AM to 8:00 PM (20:00)
-
-  const [currentTime, setCurrentTime] = useState<Date | null>(null);
+  const [now, setNow] = useState<Date | null>(null);
   const [selectedDetailItem, setSelectedDetailItem] = useState<DetailItem | null>(null);
 
   useEffect(() => {
-    setCurrentTime(new Date());
-    const interval = setInterval(() => setCurrentTime(new Date()), 60000);
+    setNow(new Date());
+    const interval = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(interval);
   }, []);
 
-  const getCategoryCardStyle = (category?: string) => {
-    switch (category?.toLowerCase()) {
-      case 'work':
-        return 'bg-indigo-950/50 border-indigo-500/40 text-indigo-100 cat-border-work hover:border-indigo-400/80';
-      case 'study':
-        return 'bg-purple-950/50 border-purple-500/40 text-purple-100 cat-border-study hover:border-purple-400/80';
-      case 'health':
-        return 'bg-emerald-950/50 border-emerald-500/40 text-emerald-100 cat-border-health hover:border-emerald-400/80';
-      case 'personal':
-        return 'bg-amber-950/50 border-amber-500/40 text-amber-100 cat-border-personal hover:border-amber-400/80';
-      default:
-        return 'bg-brand-950/50 border-brand-500/40 text-brand-100 cat-border-default hover:border-brand-400/80';
-    }
-  };
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const hours = Array.from({ length: HOURS_IN_DAY }, (_, i) => START_HOUR + i);
 
-  const triggerConfetti = () => {
-    confetti({
-      particleCount: 90,
-      spread: 75,
-      origin: { y: 0.6 },
-    });
-  };
+  function isCurrentTimeSlot(dayDate: Date, hour: number): boolean {
+    if (!now) return false;
+    return isSameDay(now, dayDate) && getHours(now) === hour;
+  }
 
-  const isCurrentTimeSlot = (day: Date, hour: number) => {
-    if (!currentTime) return false;
-    return isSameDay(day, currentTime) && getHours(currentTime) === hour;
-  };
-
-  const getCurrentTimeOffsetPercent = () => {
-    if (!currentTime) return 0;
-    const mins = getMinutes(currentTime);
+  function getCurrentTimeOffsetPercent(): number {
+    if (!now) return 0;
+    const mins = getMinutes(now);
     return (mins / 60) * 100;
-  };
+  }
 
   return (
-    <div className="space-y-4">
-      {/* Action Bar */}
-      <div className="card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
-            <CalendarIcon className="w-4 h-4" />
+    <div className="space-y-3">
+
+      {/* Header bar with total hours & sync button */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60 border border-slate-800 p-4 rounded-2xl backdrop-blur-md">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center">
+            <CalendarIcon className="w-4 h-4 text-indigo-400" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <span>Week of {format(weekStart, 'MMM d, yyyy')}</span>
+            <h3 className="text-sm font-extrabold text-white tracking-tight flex items-center gap-2">
+              Weekly AI Focus Schedule
             </h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              <span className="font-semibold text-indigo-300">{proposedBlocks.length} AI focus block(s)</span>
-              {' • '}
-              <span className="text-slate-400">{existingEvents.length} calendar event(s)</span>
+            <p className="text-[11px] text-slate-400">
+              {proposedBlocks.length} planned block{proposedBlocks.length !== 1 ? 's' : ''} •{' '}
+              {existingEvents.length} calendar event{existingEvents.length !== 1 ? 's' : ''}
             </p>
           </div>
         </div>
 
-        {onSyncGoogleCalendar && (
+        {onSyncGoogleCalendar && proposedBlocks.length > 0 && (
           <button
-            onClick={() => {
-              triggerConfetti();
-              onSyncGoogleCalendar();
-            }}
-            disabled={isSyncing || proposedBlocks.length === 0}
-            className="btn btn-success px-5 py-2.5 text-xs font-bold shadow-glow-emerald shrink-0"
+            onClick={onSyncGoogleCalendar}
+            disabled={isSyncing}
+            className="btn btn-outline px-4 py-2 text-xs flex items-center gap-2 border-emerald-500/40 text-emerald-300 hover:bg-emerald-950/40 hover:border-emerald-400"
           >
             {isSyncing ? (
               <>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                <span>Syncing Calendar...</span>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                <span>Syncing with Google...</span>
               </>
             ) : (
               <>
-                <CheckCircle className="w-3.5 h-3.5 text-emerald-200" />
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Sync to Google Calendar</span>
               </>
             )}
@@ -132,19 +127,18 @@ export function WeekCalendarGrid({
         )}
       </div>
 
-      {/* Main Weekly Calendar Grid Container */}
-      <div className="card overflow-hidden">
+      {/* Main Grid Container */}
+      <div className="bg-slate-950/90 border border-slate-800/80 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl">
         <div className="overflow-x-auto">
-          <div className="min-w-[840px]">
+          <div className="min-w-[850px]">
 
-            {/* Header Row: Days of Week */}
-            <div className="grid grid-cols-8 border-b border-slate-800 bg-slate-900/80 sticky top-0 z-20 backdrop-blur-md">
-              <div className="p-3 text-center text-[11px] font-bold text-slate-500 border-r border-slate-800 uppercase tracking-wider flex items-center justify-center">
-                Time
+            {/* Days Header Row */}
+            <div className="grid grid-cols-8 border-b border-slate-800/80 bg-slate-900/80 select-none">
+              <div className="p-3 text-center text-xs font-bold text-slate-400 border-r border-slate-800/80 flex items-center justify-center">
+                GMT
               </div>
-
               {days.map((day) => {
-                const isToday = isSameDay(day, new Date());
+                const isToday = now ? isSameDay(now, day) : false;
                 return (
                   <div
                     key={day.toISOString()}
@@ -170,11 +164,10 @@ export function WeekCalendarGrid({
               })}
             </div>
 
-            {/* Empty State Banner if no proposed blocks exist */}
+            {/* Empty State Banner */}
             {proposedBlocks.length === 0 && (
               <div className="p-4 bg-indigo-950/20 border-b border-slate-800 flex items-center justify-between text-xs text-indigo-300">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-indigo-400 shrink-0" />
                   <span>No AI focus blocks generated for this week yet. Click <strong>"Generate AI Schedule"</strong> above to plan your backlog.</span>
                 </div>
               </div>
@@ -189,15 +182,13 @@ export function WeekCalendarGrid({
                     {hour < 12 ? `${hour}:00 AM` : hour === 12 ? '12:00 PM' : `${hour - 12}:00 PM`}
                   </div>
 
-                  {/* Day Columns for this hour slot */}
+                  {/* Day Columns */}
                   {days.map((day) => {
-                    // Find proposed AI blocks starting in this hour slot
                     const dayBlocks = proposedBlocks.filter((b) => {
                       const bStart = parseISO(b.start);
                       return isSameDay(bStart, day) && getHours(bStart) === hour;
                     });
 
-                    // Find existing calendar events starting in this hour slot
                     const dayEvents = existingEvents.filter((e) => {
                       const eStart = parseISO(e.start);
                       return isSameDay(eStart, day) && getHours(eStart) === hour;
@@ -211,7 +202,7 @@ export function WeekCalendarGrid({
                         key={day.toISOString()}
                         className="p-1 border-r border-slate-800/50 relative space-y-1 hover:bg-slate-900/40 transition-colors group/cell"
                       >
-                        {/* Half-hour subtle divider line */}
+                        {/* Half-hour divider line */}
                         <div className="absolute top-1/2 left-0 right-0 border-b border-dashed border-slate-800/30 pointer-events-none" />
 
                         {/* Red Current-Time Line Indicator */}
@@ -225,7 +216,7 @@ export function WeekCalendarGrid({
                           </div>
                         )}
 
-                        {/* Render Existing Events (Muted Slate) */}
+                        {/* Render Existing Events */}
                         {dayEvents.map((evt) => (
                           <div
                             key={evt.id || evt.summary}
@@ -249,6 +240,8 @@ export function WeekCalendarGrid({
 
                         {/* Render Proposed AI Focus Blocks */}
                         {dayBlocks.map((block) => {
+                          const isSplitBlock = block.partIndex && block.totalParts && block.totalParts > 1;
+
                           return (
                             <div
                               key={block.id}
@@ -284,6 +277,14 @@ export function WeekCalendarGrid({
                                   </button>
                                 )}
                               </div>
+
+                              {/* Multi-session Split Badge */}
+                              {isSplitBlock && (
+                                <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-500/20 border border-indigo-400/30 text-[9px] font-bold text-indigo-300">
+                                  <LinkIcon className="w-2.5 h-2.5" />
+                                  <span>Part {block.partIndex} of {block.totalParts}</span>
+                                </div>
+                              )}
 
                               <div className="text-[10px] opacity-90 mt-1 flex items-center justify-between font-medium">
                                 <span>
