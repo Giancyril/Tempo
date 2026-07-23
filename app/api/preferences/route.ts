@@ -21,13 +21,16 @@ export async function GET() {
           daysOff: 'Saturday,Sunday',
           bufferMinutes: 15,
           maxFocusBlockMin: 120,
+          chronotype: 'flexible',
+          peakStart: '09:00',
+          peakEnd: '12:00',
         },
       });
     }
 
     return NextResponse.json({
       ...pref,
-      daysOffArray: pref.daysOff.split(',').filter(Boolean),
+      daysOffArray: pref.daysOff ? pref.daysOff.split(',').filter(Boolean) : [],
     });
   } catch (error) {
     console.error('Failed to fetch preferences:', error);
@@ -41,7 +44,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { workStart, workEnd, daysOff, bufferMinutes, maxFocusBlockMin } = body;
+    const { workStart, workEnd, daysOff, bufferMinutes, maxFocusBlockMin, chronotype, peakStart, peakEnd } = body;
 
     const daysOffString = Array.isArray(daysOff) ? daysOff.join(',') : daysOff || 'Saturday,Sunday';
 
@@ -53,6 +56,9 @@ export async function POST(request: Request) {
         daysOff: daysOffString,
         bufferMinutes: Number(bufferMinutes || 15),
         maxFocusBlockMin: Number(maxFocusBlockMin || 120),
+        chronotype: chronotype || 'flexible',
+        peakStart: peakStart || '09:00',
+        peakEnd: peakEnd || '12:00',
       },
       create: {
         userId,
@@ -61,12 +67,15 @@ export async function POST(request: Request) {
         daysOff: daysOffString,
         bufferMinutes: Number(bufferMinutes || 15),
         maxFocusBlockMin: Number(maxFocusBlockMin || 120),
+        chronotype: chronotype || 'flexible',
+        peakStart: peakStart || '09:00',
+        peakEnd: peakEnd || '12:00',
       },
     });
 
     return NextResponse.json({
       ...pref,
-      daysOffArray: pref.daysOff.split(',').filter(Boolean),
+      daysOffArray: pref.daysOff ? pref.daysOff.split(',').filter(Boolean) : [],
     });
   } catch (error) {
     console.error('Failed to save preferences:', error);
