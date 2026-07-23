@@ -5,6 +5,7 @@ import { TaskList, TaskItem } from '@/components/TaskList';
 import { TaskFormModal } from '@/components/TaskFormModal';
 import { ScheduleBanner } from '@/components/ScheduleBanner';
 import { WeekCalendarGrid, CalendarBlock, ExistingEvent } from '@/components/WeekCalendarGrid';
+import { ConflictAlert, ConflictItem } from '@/components/ConflictAlert';
 import { startOfWeek, addWeeks, subWeeks, format } from 'date-fns';
 import { Plus, CheckSquare, Sparkles, Clock, Zap, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 
@@ -20,6 +21,10 @@ export default function DashboardPage() {
   const [unscheduledTasks, setUnscheduledTasks] = useState<any[]>([]);
   const [currentScheduleId, setCurrentScheduleId] = useState<string | null>(null);
 
+  // Automatic Conflict Re-planning state
+  const [conflicts, setConflicts] = useState<ConflictItem[]>([]);
+  const [isReplanning, setIsReplanning] = useState(false);
+
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
 
   // Load tasks & calendar events on mount & when weekStart changes
@@ -31,6 +36,37 @@ export default function DashboardPage() {
     }
     loadData();
   }, [weekStart]);
+
+  // Periodic Conflict Polling (checks every 30 seconds for overlaps with Google Calendar events)
+  useEffect(() => {
+    if (proposedBlocks.length === 0) {
+      setConflicts([]);
+      return;
+    }
+
+    async function checkForConflicts() {
+      try {
+        const res = await fetch('/api/schedule/conflict-check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            blocks: proposedBlocks,
+            weekOf: weekStart.toISOString(),
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setConflicts(data.conflicts || []);
+        }
+      } catch (err) {
+        console.error('Failed to poll conflicts:', err);
+      }
+    }
+
+    checkForConflicts();
+    const interval = setInterval(checkForConflicts, 30000);
+    return () => clearInterval(interval);
+  }, [proposedBlocks, weekStart]);
 
   async function loadTasks() {
     try {
@@ -61,6 +97,7 @@ export default function DashboardPage() {
     setIsGenerating(true);
     setSummaryNotes('');
     setUnscheduledTasks([]);
+    setConflicts([]);
 
     try {
       const res = await fetch('/api/schedule/generate', {
@@ -85,6 +122,38 @@ export default function DashboardPage() {
       alert(err.message || 'Error generating schedule');
     } finally {
       setIsGenerating(false);
+    }
+  }
+
+  async function handleAutomaticReplan() {
+    if (conflicts.length === 0 || proposedBlocks.length === 0) return;
+    setIsReplanning(true);
+
+    try {
+      const conflictingBlockIds = conflicts.map((c) => c.blockId);
+      const res = await fetch('/api/schedule/replan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentBlocks: proposedBlocks,
+          conflictingBlockIds,
+          weekOf: weekStart.toISOString(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to replan schedule');
+      }
+
+      setProposedBlocks(data.blocks || proposedBlocks);
+      if (data.summaryNotes) setSummaryNotes(data.summaryNotes);
+      setConflicts([]); // Clear conflicts once resolved
+      await loadCalendarEvents();
+    } catch (err: any) {
+      alert(err.message || 'Re-plan failed');
+    } finally {
+      setIsReplanning(false);
     }
   }
 
@@ -133,6 +202,14 @@ export default function DashboardPage() {
         isGenerating={isGenerating}
         summaryNotes={summaryNotes}
         unscheduledTasks={unscheduledTasks}
+      />
+
+      {/* Automatic Conflict Alert Banner (when overlaps detected) */}
+      <ConflictAlert
+        conflicts={conflicts}
+        onReplan={handleAutomaticReplan}
+        isReplanning={isReplanning}
+        onDismiss={() => setConflicts([])}
       />
 
       {/* Quick Metrics Bar */}
