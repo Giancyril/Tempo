@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { format, addDays, startOfWeek, parseISO, isSameDay, getHours, getMinutes, differenceInMinutes } from 'date-fns';
-import { Sparkles, Calendar as CalendarIcon, CheckCircle, Trash2, RefreshCw, Info, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Calendar as CalendarIcon, CheckCircle, Trash2, RefreshCw, CheckCircle2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { BlockDetailModal, DetailItem } from './BlockDetailModal';
 
 export interface CalendarBlock {
   id: string;
@@ -45,6 +46,7 @@ export function WeekCalendarGrid({
   const hours = Array.from({ length: 13 }).map((_, i) => i + 8); // 8:00 AM to 8:00 PM (20:00)
 
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
+  const [selectedDetailItem, setSelectedDetailItem] = useState<DetailItem | null>(null);
 
   useEffect(() => {
     setCurrentTime(new Date());
@@ -55,15 +57,15 @@ export function WeekCalendarGrid({
   const getCategoryCardStyle = (category?: string) => {
     switch (category?.toLowerCase()) {
       case 'work':
-        return 'bg-indigo-950/50 border-indigo-500/40 text-indigo-100 cat-border-work';
+        return 'bg-indigo-950/50 border-indigo-500/40 text-indigo-100 cat-border-work hover:border-indigo-400/80';
       case 'study':
-        return 'bg-purple-950/50 border-purple-500/40 text-purple-100 cat-border-study';
+        return 'bg-purple-950/50 border-purple-500/40 text-purple-100 cat-border-study hover:border-purple-400/80';
       case 'health':
-        return 'bg-emerald-950/50 border-emerald-500/40 text-emerald-100 cat-border-health';
+        return 'bg-emerald-950/50 border-emerald-500/40 text-emerald-100 cat-border-health hover:border-emerald-400/80';
       case 'personal':
-        return 'bg-amber-950/50 border-amber-500/40 text-amber-100 cat-border-personal';
+        return 'bg-amber-950/50 border-amber-500/40 text-amber-100 cat-border-personal hover:border-amber-400/80';
       default:
-        return 'bg-brand-950/50 border-brand-500/40 text-brand-100 cat-border-default';
+        return 'bg-brand-950/50 border-brand-500/40 text-brand-100 cat-border-default hover:border-brand-400/80';
     }
   };
 
@@ -75,7 +77,6 @@ export function WeekCalendarGrid({
     });
   };
 
-  // Check if current time line falls in this hour slot and day
   const isCurrentTimeSlot = (day: Date, hour: number) => {
     if (!currentTime) return false;
     return isSameDay(day, currentTime) && getHours(currentTime) === hour;
@@ -228,8 +229,16 @@ export function WeekCalendarGrid({
                         {dayEvents.map((evt) => (
                           <div
                             key={evt.id || evt.summary}
-                            className="p-1.5 rounded-lg bg-slate-800/80 border border-slate-700/80 text-slate-300 text-[11px] font-medium shadow-sm border-l-2 border-l-slate-400"
-                            title={`Calendar Event: ${evt.summary} (${format(parseISO(evt.start), 'HH:mm')}-${format(parseISO(evt.end), 'HH:mm')})`}
+                            onClick={() => setSelectedDetailItem({
+                              type: 'existing-event',
+                              id: evt.id,
+                              title: evt.summary,
+                              start: evt.start,
+                              end: evt.end,
+                              source: evt.source,
+                            })}
+                            className="p-1.5 rounded-lg bg-slate-800/80 border border-slate-700/80 text-slate-300 text-[11px] font-medium shadow-sm border-l-2 border-l-slate-400 cursor-pointer hover:bg-slate-700/90 hover:border-slate-500 transition-all select-none"
+                            title="Click to view details"
                           >
                             <div className="truncate font-bold text-slate-200">{evt.summary}</div>
                             <div className="text-[10px] text-slate-400 mt-0.5">
@@ -240,12 +249,21 @@ export function WeekCalendarGrid({
 
                         {/* Render Proposed AI Focus Blocks */}
                         {dayBlocks.map((block) => {
-                          const duration = differenceInMinutes(parseISO(block.end), parseISO(block.start));
                           return (
                             <div
                               key={block.id}
+                              onClick={() => setSelectedDetailItem({
+                                type: 'ai-block',
+                                id: block.id,
+                                title: block.title,
+                                category: block.category,
+                                start: block.start,
+                                end: block.end,
+                                reasoning: block.reasoning,
+                                isSynced: block.isSynced,
+                              })}
                               className={`
-                                p-2 rounded-xl border text-xs relative group/block transition-all duration-200 hover:scale-[1.02] shadow-sm
+                                p-2 rounded-xl border text-xs relative group/block transition-all duration-200 hover:scale-[1.02] shadow-sm cursor-pointer select-none
                                 ${getCategoryCardStyle(block.category)}
                               `}
                             >
@@ -255,7 +273,10 @@ export function WeekCalendarGrid({
                                 </span>
                                 {onDeleteBlock && (
                                   <button
-                                    onClick={() => onDeleteBlock(block.id)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onDeleteBlock(block.id);
+                                    }}
                                     className="opacity-0 group-hover/block:opacity-100 p-0.5 rounded text-red-300 hover:bg-red-900/60 transition-opacity shrink-0"
                                     title="Remove Block"
                                   >
@@ -274,15 +295,6 @@ export function WeekCalendarGrid({
                                   </span>
                                 )}
                               </div>
-
-                              {block.reasoning && (
-                                <div className="hidden group-hover/block:block absolute bottom-full left-0 z-40 mb-2 w-52 p-2.5 rounded-xl bg-slate-950 border border-slate-700 text-[10px] text-slate-300 shadow-2xl space-y-1">
-                                  <div className="font-bold text-indigo-300 flex items-center gap-1">
-                                    <Sparkles className="w-3 h-3" /> AI Reasoning
-                                  </div>
-                                  <p className="text-slate-400 leading-normal">{block.reasoning}</p>
-                                </div>
-                              )}
                             </div>
                           );
                         })}
@@ -296,6 +308,13 @@ export function WeekCalendarGrid({
           </div>
         </div>
       </div>
+
+      {/* Block Details Modal */}
+      <BlockDetailModal
+        item={selectedDetailItem}
+        onClose={() => setSelectedDetailItem(null)}
+        onDeleteBlock={onDeleteBlock}
+      />
     </div>
   );
 }
