@@ -68,6 +68,9 @@ model Preference {
   daysOff          String   @default("Saturday,Sunday") // comma separated days
   bufferMinutes    Int      @default(15)
   maxFocusBlockMin Int      @default(120)
+  chronotype       String   @default("flexible") // morning, evening, night, flexible
+  peakStart        String   @default("09:00") // e.g. "09:00"
+  peakEnd          String   @default("12:00") // e.g. "12:00"
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
